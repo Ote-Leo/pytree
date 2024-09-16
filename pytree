@@ -1,22 +1,43 @@
+#!/usr/bin/python3
+
 import argparse as ap
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TypeAlias
 
 __version__: str = "0.1.0"
 DEFAULT_PATH: Path = Path(".")
 
 
-def preview_entry(entry: Path, entry_prefix: str, prefix: str, lines: list[str], sort_entries: bool):
+TreeStyler: TypeAlias = tuple[str, str, str, str]
+UNICODE_TREE: TreeStyler = ("├─ ", "│  ", "└─ ", "   ")
+ASCII_TREE: TreeStyler = ("+- ", "|  ", "`- ", "   ")
+
+
+def preview_entry(
+	entry: Path,
+	entry_prefix: str,
+	prefix: str,
+	lines: list[str],
+	sort_entries: bool,
+	tree_styler: TreeStyler,
+):
 	if entry.is_file():
 		lines.append("%s%s" % (entry_prefix, entry.name))
 		return
 
 	lines.append("%s%s/" % (entry_prefix, entry.name))
-	lines += preview_tree(entry, prefix, sort_entries)
+	lines += preview_tree(entry, tree_styler, prefix, sort_entries)
 
 
-def preview_tree(path: Path, prefix: str = "", sort_entries: bool = False, lines: list[str] | None = None) -> list[str]:
+def preview_tree(
+	path: Path,
+	tree_styler: TreeStyler,
+	prefix: str = "",
+	sort_entries: bool = False,
+	lines: list[str] | None = None,
+) -> list[str]:
 	if lines is None:
 		lines = []
 
@@ -30,8 +51,8 @@ def preview_tree(path: Path, prefix: str = "", sort_entries: bool = False, lines
 	first_entries, last_entry = entries[:-1], entries[-1]
 
 	for entry in first_entries:
-		preview_entry(entry, "├─ ", "│  ", lines, sort_entries)
-	preview_entry(last_entry, "└─ ", "   ", lines, sort_entries)
+		preview_entry(entry, tree_styler[0], tree_styler[1], lines, sort_entries, tree_styler)
+	preview_entry(last_entry, tree_styler[2], tree_styler[3], lines, sort_entries, tree_styler)
 
 	for idx, line in enumerate(lines):
 		lines[idx] = prefix + line
@@ -39,9 +60,9 @@ def preview_tree(path: Path, prefix: str = "", sort_entries: bool = False, lines
 	return lines
 
 
-def tree(path: Path, sort_entries: bool = False) -> list[str]:
+def tree(path: Path, styler: TreeStyler, sort_entries: bool = False) -> list[str]:
 	lines: list[str] = []
-	preview_entry(path, "", "", lines, sort_entries)
+	preview_entry(path, "", "", lines, sort_entries, styler)
 	return lines
 
 
@@ -49,6 +70,7 @@ def init_parser() -> ap.ArgumentParser:
 	parser = ap.ArgumentParser()
 	parser.add_argument("-v", "--version", help="print script version", action="store_true")
 	parser.add_argument("-s", "--sort", help="sort tree entries", action="store_true")
+	parser.add_argument("--ascii", help="style tree with ascii branches", action="store_true")
 	parser.add_argument(
 		"path",
 		help=f"path to preview as a tree structure (defaults to '{DEFAULT_PATH}')",
@@ -67,7 +89,10 @@ def main(args: Sequence[str] | None) -> int:
 		return 0
 
 	path: Path = ns.path
-	lines = tree(path, ns.sort)
+	styler = UNICODE_TREE
+	if ns.ascii:
+		styler = ASCII_TREE
+	lines = tree(path, styler, ns.sort)
 	view = "\n".join(lines)
 	print(view)
 	return 0
