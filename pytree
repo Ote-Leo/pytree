@@ -26,10 +26,6 @@ def preview_entry(
 	excludes: list[Path],
 	dir_only: bool,
 ):
-	if excludes and entry in excludes:
-		excludes.remove(entry)
-		return
-
 	if entry.is_file():
 		lines.append("%s%s" % (entry_prefix, entry.name))
 		return
@@ -57,7 +53,16 @@ def preview_tree(
 			return lines
 		new_depth = depth - 1
 
-	entries = [key for key in path.iterdir()]
+	if excludes:
+		entries = []
+		for entry in path.iterdir():
+			if entry in excludes:
+				excludes.remove(entry)
+				continue
+			entries.append(entry)
+	else:
+		entries = [key for key in path.iterdir()]
+
 	if sort_entries:
 		entries = sorted(entries)
 
