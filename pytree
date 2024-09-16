@@ -22,24 +22,32 @@ def preview_entry(
 	lines: list[str],
 	sort_entries: bool,
 	tree_styler: TreeStyler,
+	depth: int | None,
 ):
 	if entry.is_file():
 		lines.append("%s%s" % (entry_prefix, entry.name))
 		return
 
 	lines.append("%s%s/" % (entry_prefix, entry.name))
-	lines += preview_tree(entry, tree_styler, prefix, sort_entries)
+	lines += preview_tree(entry, tree_styler, depth, prefix, sort_entries)
 
 
 def preview_tree(
 	path: Path,
 	tree_styler: TreeStyler,
+	depth: int | None,
 	prefix: str = "",
 	sort_entries: bool = False,
 	lines: list[str] | None = None,
 ) -> list[str]:
 	if lines is None:
 		lines = []
+
+	new_depth = None
+	if depth is not None:
+		if depth == 0:
+			return lines
+		new_depth = depth - 1
 
 	entries = [key for key in path.iterdir()]
 	if sort_entries:
@@ -51,8 +59,8 @@ def preview_tree(
 	first_entries, last_entry = entries[:-1], entries[-1]
 
 	for entry in first_entries:
-		preview_entry(entry, tree_styler[0], tree_styler[1], lines, sort_entries, tree_styler)
-	preview_entry(last_entry, tree_styler[2], tree_styler[3], lines, sort_entries, tree_styler)
+		preview_entry(entry, tree_styler[0], tree_styler[1], lines, sort_entries, tree_styler, new_depth)
+	preview_entry(last_entry, tree_styler[2], tree_styler[3], lines, sort_entries, tree_styler, new_depth)
 
 	for idx, line in enumerate(lines):
 		lines[idx] = prefix + line
@@ -60,10 +68,17 @@ def preview_tree(
 	return lines
 
 
-def tree(path: Path, styler: TreeStyler, sort_entries: bool = False) -> list[str]:
+def tree(path: Path, styler: TreeStyler, depth: int | None, sort_entries: bool = False) -> list[str]:
 	lines: list[str] = []
-	preview_entry(path, "", "", lines, sort_entries, styler)
+	preview_entry(path, "", "", lines, sort_entries, styler, depth)
 	return lines
+
+
+def NaturalNumber(arg: str) -> int | None:
+	n = int(arg)
+	if n > 0:
+		return n
+	print(f"cannot use '{n}' as a depth value; defaulting to no depth", file=sys.stderr)
 
 
 def init_parser() -> ap.ArgumentParser:
@@ -71,6 +86,7 @@ def init_parser() -> ap.ArgumentParser:
 	parser.add_argument("-v", "--version", help="print script version", action="store_true")
 	parser.add_argument("-s", "--sort", help="sort tree entries", action="store_true")
 	parser.add_argument("--ascii", help="style tree with ascii branches", action="store_true")
+	parser.add_argument("--depth", help="set the maximum tree depth", type=NaturalNumber)
 	parser.add_argument(
 		"path",
 		help=f"path to preview as a tree structure (defaults to '{DEFAULT_PATH}')",
@@ -89,10 +105,12 @@ def main(args: Sequence[str] | None) -> int:
 		return 0
 
 	path: Path = ns.path
+	depth: int | None = ns.depth
+	sort: bool = ns.sort
 	styler = UNICODE_TREE
 	if ns.ascii:
 		styler = ASCII_TREE
-	lines = tree(path, styler, ns.sort)
+	lines = tree(path, styler, depth, sort)
 	view = "\n".join(lines)
 	print(view)
 	return 0
